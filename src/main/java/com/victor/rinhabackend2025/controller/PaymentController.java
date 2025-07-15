@@ -27,9 +27,10 @@ public class PaymentController {
     public ResponseEntity<Void> createPayment(@RequestBody @Valid PaymentRequest paymentRequest) {
 
         try {
-            paymentService.processPayment(paymentRequest);
+            paymentService.createPayment(paymentRequest);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            log.error(e.getMessage(), e);
             return ResponseEntity.badRequest().build();
         }
     }

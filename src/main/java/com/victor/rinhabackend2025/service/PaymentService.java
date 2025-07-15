@@ -27,6 +27,8 @@ public class PaymentService {
     private final RestClient restClient;
     @Value("${default-url}")
     private String DEFAULT_URL;
+    @Value("${fallback-url}")
+    private String FALLBACK_URL;
 
     public PaymentService(PaymentRepository paymentRepository, HealthCheckService healthCheckService, RestClient restClient) {
         this.paymentRepository = paymentRepository;
@@ -34,17 +36,39 @@ public class PaymentService {
         this.restClient = restClient;
     }
 
-    public void processPayment(PaymentRequest paymentRequest) {
+    public void createPayment(PaymentRequest paymentRequest) {
         Payment payment = new Payment();
         payment.setCorrelationId(paymentRequest.correlationId());
         payment.setAmount(paymentRequest.amount());
 
         String currentProcessorUrl = healthCheckService.getCurrentProcessorUrl();
-        String processor = currentProcessorUrl.equals(DEFAULT_URL) ? "default" : "fallback";
 
-        payment.setProcessor(processor);
+        if (currentProcessorUrl.equals(DEFAULT_URL)) {
+            try {
+                processPaymentDefaultProcessor(payment);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                processPaymentFallbackProcessor(payment);
+            }
+        } else {
+            processPaymentFallbackProcessor(payment);
+        }
+    }
+
+    public void processPaymentDefaultProcessor(Payment payment) {
+        payment.setProcessor("default");
         payment.setRequestedAt(Instant.now());
-        if (sendPaymentRequest(payment, currentProcessorUrl)){
+        if (sendPaymentRequest(payment, DEFAULT_URL)){
+            paymentRepository.save(payment);
+        } else {
+            throw new RuntimeException("Failed to send payment request");
+        }
+    }
+
+    public void processPaymentFallbackProcessor(Payment payment) {
+        payment.setProcessor("fallback");
+        payment.setRequestedAt(Instant.now());
+        if (sendPaymentRequest(payment, FALLBACK_URL)){
             paymentRepository.save(payment);
         } else {
             throw new RuntimeException("Failed to send payment request");
