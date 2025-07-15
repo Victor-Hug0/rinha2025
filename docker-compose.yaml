@@ -1,0 +1,80 @@
+services:
+  api-1:
+    build: .
+    ports:
+      - "8080:8080"
+    container_name: api-1
+    environment:
+      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
+      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
+      - JAVA_OPTS=-Xmx120m -Xms120m -XX:+UseContainerSupport
+    networks:
+      - app
+      - payment-processor
+    depends_on:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: "0.55"
+          memory: "140MB"
+
+
+  api-2:
+    build: .
+    ports:
+      - "8080:8080"
+    container_name: api-2
+    environment:
+      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
+      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
+      - JAVA_OPTS=-Xmx120m -Xms120m -XX:+UseContainerSupport
+    networks:
+      - app
+      - payment-processor
+    deploy:
+      resources:
+        limits:
+          cpus: "0.55"
+          memory: "140MB"
+
+  db:
+    image: postgres:17-alpine
+    container_name: db_rinha_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=db_rinha2025
+    networks:
+      - app
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "50MB"
+
+  load-balancer:
+    container_name: load-balancer-nginx
+    image: nginx:1.27.1-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-1
+      - api-2
+    ports:
+      - "9999:9999"
+    networks:
+      - app
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: "20MB"
+
+networks:
+  app:
+    driver: bridge
+  payment-processor:
+    external: true
