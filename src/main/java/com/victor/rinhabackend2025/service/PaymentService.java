@@ -35,7 +35,7 @@ public class PaymentService {
         payment.setCorrelationId(paymentRequest.correlationId());
         payment.setAmount(paymentRequest.amount());
 
-        String currentProcessorUrl = healthCheckService.chooseProcessor();
+        String currentProcessorUrl = healthCheckService.getCurrentProcessorUrl();
         String processor;
 
         if (currentProcessorUrl.equals(DEFAULT_URL)){
@@ -46,7 +46,7 @@ public class PaymentService {
 
         payment.setProcessor(processor);
         payment.setRequestedAt(Instant.now());
-        sendPaymentRequest(payment, healthCheckService.chooseProcessor());
+        sendPaymentRequest(payment, healthCheckService.getCurrentProcessorUrl());
         paymentRepository.save(payment);
     }
 

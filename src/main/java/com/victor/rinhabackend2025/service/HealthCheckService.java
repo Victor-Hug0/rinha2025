@@ -19,7 +19,7 @@ public class HealthCheckService {
     private String DEFAULT_URL;
     @Value("${fallback-url}")
     private String FALLBACK_URL;
-    private final AtomicReference<String> currentProcessor = new AtomicReference<>("default");
+    private final AtomicReference<String> currentProcessorUrl = new AtomicReference<>(DEFAULT_URL);
     private final RestClient restClient;
 
     public HealthCheckService(RestClient restClient) {
@@ -27,22 +27,21 @@ public class HealthCheckService {
     }
 
     @Scheduled(fixedRate = 5000)
-    public String chooseProcessor(){
+    public void chooseProcessor(){
         if (isServiceHealth(DEFAULT_URL)) {
-            this.currentProcessor.set("default");
-            log.info("Current processor: {}", this.currentProcessor);
-            return DEFAULT_URL;
+            currentProcessorUrl.set(DEFAULT_URL);
+            log.info("Current processor: DEFAULT_URL ({})", DEFAULT_URL);
+            return;
         }
 
         if (isServiceHealth(FALLBACK_URL)) {
-            this.currentProcessor.set("fallback");
-            log.info("Current processor: {}", this.currentProcessor);
-            return FALLBACK_URL;
+            currentProcessorUrl.set(FALLBACK_URL);
+            log.info("Current processor: FALLBACK_URL ({})", FALLBACK_URL);
+            return;
         }
 
-        this.currentProcessor.set("default");
-        log.warn("Using default processor as default");
-        return DEFAULT_URL;
+        currentProcessorUrl.set(DEFAULT_URL);
+        log.warn("Both processors unavailable, using DEFAULT_URL as fallback ({})", DEFAULT_URL);
     }
 
 
@@ -63,7 +62,7 @@ public class HealthCheckService {
         }
     }
 
-    public String getCurrentProcessor(){
-        return this.currentProcessor.get();
+    public String getCurrentProcessorUrl(){
+        return this.currentProcessorUrl.get();
     }
 }
