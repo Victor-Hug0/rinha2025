@@ -34,28 +34,24 @@ public class PaymentService {
         this.restClient = restClient;
     }
 
-
     public void processPayment(PaymentRequest paymentRequest) {
         Payment payment = new Payment();
         payment.setCorrelationId(paymentRequest.correlationId());
         payment.setAmount(paymentRequest.amount());
 
         String currentProcessorUrl = healthCheckService.getCurrentProcessorUrl();
-        String processor;
-
-        if (currentProcessorUrl.equals(DEFAULT_URL)){
-            processor = "default";
-        } else {
-            processor = "fallback";
-        }
+        String processor = currentProcessorUrl.equals(DEFAULT_URL) ? "default" : "fallback";
 
         payment.setProcessor(processor);
         payment.setRequestedAt(Instant.now());
-        sendPaymentRequest(payment, currentProcessorUrl);
-        paymentRepository.save(payment);
+        if (sendPaymentRequest(payment, currentProcessorUrl)){
+            paymentRepository.save(payment);
+        } else {
+            throw new RuntimeException("Failed to send payment request");
+        }
     }
 
-    private void sendPaymentRequest(Payment payment, String processorUrl) {
+    private boolean sendPaymentRequest(Payment payment, String processorUrl) {
         try {
             PaymentProcessorRequest paymentProcessorRequest = new PaymentProcessorRequest(payment.getCorrelationId(), payment.getAmount(), payment.getRequestedAt());
 
@@ -65,8 +61,11 @@ public class PaymentService {
                     .body(paymentProcessorRequest)
                     .retrieve()
                     .toBodilessEntity();
+
+            return true;
         } catch (Exception e) {
             log.error("Error sending payment request", e);
+            return false;
         }
     }
 
