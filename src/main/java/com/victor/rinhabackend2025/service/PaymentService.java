@@ -79,9 +79,9 @@ public class PaymentService {
         PaymentSummary fallbackPaymentSummary = new PaymentSummary(0, BigDecimal.ZERO);
 
         for (ProcessorSummaryDTO summaryDTO : summaryDTOS) {
-            if ("default".equals(summaryDTO.processor())){
+            if (summaryDTO.processor().equals("default")) {
                 defaultPaymentSummary = new PaymentSummary(summaryDTO.totalRequests().intValue(), summaryDTO.totalAmount());
-            } else if ("fallback".equals(summaryDTO.processor())){
+            } else if (summaryDTO.processor().equals("fallback")) {
                 fallbackPaymentSummary = new PaymentSummary(summaryDTO.totalRequests().intValue(), summaryDTO.totalAmount());
             }
         }
