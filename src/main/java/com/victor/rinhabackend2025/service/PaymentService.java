@@ -2,7 +2,10 @@ package com.victor.rinhabackend2025.service;
 
 import com.victor.rinhabackend2025.dto.PaymentProcessorRequest;
 import com.victor.rinhabackend2025.dto.PaymentRequest;
+import com.victor.rinhabackend2025.dto.PaymentSummaryResponse;
+import com.victor.rinhabackend2025.dto.ProcessorSummaryDTO;
 import com.victor.rinhabackend2025.entity.Payment;
+import com.victor.rinhabackend2025.entity.PaymentSummary;
 import com.victor.rinhabackend2025.repository.PaymentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +14,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class PaymentService {
@@ -63,5 +68,24 @@ public class PaymentService {
         } catch (Exception e) {
             log.error("Error sending payment request", e);
         }
+    }
+
+    public PaymentSummaryResponse  getPaymentSummary(Instant from, Instant to) {
+        List<ProcessorSummaryDTO> summaryDTOS = (from != null && to != null) ?
+                paymentRepository.summarizeByProcessor(from, to) :
+                paymentRepository.summarizeByProcessor(null, null);
+
+        PaymentSummary defaultPaymentSummary = new PaymentSummary(0, BigDecimal.ZERO);
+        PaymentSummary fallbackPaymentSummary = new PaymentSummary(0, BigDecimal.ZERO);
+
+        for (ProcessorSummaryDTO summaryDTO : summaryDTOS) {
+            if ("default".equals(summaryDTO.processor())){
+                defaultPaymentSummary = new PaymentSummary(summaryDTO.totalRequests().intValue(), summaryDTO.totalAmount());
+            } else if ("fallback".equals(summaryDTO.processor())){
+                fallbackPaymentSummary = new PaymentSummary(summaryDTO.totalRequests().intValue(), summaryDTO.totalAmount());
+            }
+        }
+
+        return new PaymentSummaryResponse(defaultPaymentSummary, fallbackPaymentSummary);
     }
 }

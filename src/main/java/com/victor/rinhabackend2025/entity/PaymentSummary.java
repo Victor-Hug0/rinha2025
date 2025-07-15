@@ -7,6 +7,14 @@ public class PaymentSummary {
     private Integer totalRequests;
     private BigDecimal totalAmount;
 
+    public PaymentSummary(Integer totalRequests, BigDecimal totalAmount) {
+        this.totalRequests = totalRequests;
+        this.totalAmount = totalAmount;
+    }
+
+    public PaymentSummary() {
+    }
+
     public Integer getTotalRequests() {
         return totalRequests;
     }
