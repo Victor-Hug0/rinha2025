@@ -2,9 +2,10 @@ services:
   api-1:
     build: .
     ports:
-      - "8080:8080"
+      - "8081:8080"
     container_name: api-1
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/db_rinha2025
       - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
       - JAVA_OPTS=-Xmx120m -Xms120m -XX:+UseContainerSupport
@@ -12,7 +13,8 @@ services:
       - app
       - payment-processor
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -23,15 +25,19 @@ services:
   api-2:
     build: .
     ports:
-      - "8080:8080"
+      - "8082:8080"
     container_name: api-2
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/db_rinha2025
       - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
       - JAVA_OPTS=-Xmx120m -Xms120m -XX:+UseContainerSupport
     networks:
       - app
       - payment-processor
+    depends_on:
+      db:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -49,6 +55,11 @@ services:
       - POSTGRES_DB=db_rinha2025
     networks:
       - app
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:

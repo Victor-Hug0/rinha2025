@@ -73,7 +73,7 @@ public class PaymentService {
     public PaymentSummaryResponse  getPaymentSummary(Instant from, Instant to) {
         List<ProcessorSummaryDTO> summaryDTOS = (from != null && to != null) ?
                 paymentRepository.summarizeByProcessor(from, to) :
-                paymentRepository.summarizeByProcessor(null, null);
+                paymentRepository.summarizeByProcessorAll();
 
         PaymentSummary defaultPaymentSummary = new PaymentSummary(0, BigDecimal.ZERO);
         PaymentSummary fallbackPaymentSummary = new PaymentSummary(0, BigDecimal.ZERO);

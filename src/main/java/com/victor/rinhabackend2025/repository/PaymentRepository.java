@@ -15,10 +15,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     SELECT new com.victor.rinhabackend2025.dto.ProcessorSummaryDTO(
       p.processor, count(p), sum(p.amount))
     FROM Payment p
-    WHERE (:from IS NULL OR p.requestedAt >= :from)
-      AND (:to IS NULL OR p.requestedAt <= :to)
+    WHERE p.requestedAt >= :from
+      AND p.requestedAt <= :to
     GROUP BY p.processor
     """)
     List<ProcessorSummaryDTO> summarizeByProcessor(Instant from, Instant to);
+
+    @Query("""
+    SELECT new com.victor.rinhabackend2025.dto.ProcessorSummaryDTO(
+      p.processor, count(p), sum(p.amount))
+    FROM Payment p
+    GROUP BY p.processor
+    """)
+    List<ProcessorSummaryDTO> summarizeByProcessorAll();
 
 }
