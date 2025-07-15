@@ -1,6 +1,5 @@
 package com.victor.rinhabackend2025.repository;
 
-import com.victor.rinhabackend2025.dto.PaymentSummaryResponse;
 import com.victor.rinhabackend2025.dto.ProcessorSummaryDTO;
 import com.victor.rinhabackend2025.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -86,6 +86,8 @@ public class PaymentService {
             }
         }
 
+        log.info("Default payment summary: {}", defaultPaymentSummary);
+        log.info("Fallback payment summary: {}", fallbackPaymentSummary);
         return new PaymentSummaryResponse(defaultPaymentSummary, fallbackPaymentSummary);
     }
 }
