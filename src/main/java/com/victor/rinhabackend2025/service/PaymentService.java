@@ -51,7 +51,7 @@ public class PaymentService {
 
         payment.setProcessor(processor);
         payment.setRequestedAt(Instant.now());
-        sendPaymentRequest(payment, healthCheckService.getCurrentProcessorUrl());
+        sendPaymentRequest(payment, currentProcessorUrl);
         paymentRepository.save(payment);
     }
 
