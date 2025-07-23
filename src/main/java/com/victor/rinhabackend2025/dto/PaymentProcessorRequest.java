@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.UUID;
 
 public record PaymentProcessorRequest(
@@ -13,6 +14,6 @@ public record PaymentProcessorRequest(
         @NotNull @Positive
         BigDecimal amount,
         @NotNull
-        Instant processedAt
+        ZonedDateTime processedAt
 ) {
 }

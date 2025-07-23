@@ -13,11 +13,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PaymentService {
@@ -25,73 +28,97 @@ public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     private final PaymentRepository paymentRepository;
     private final HealthCheckService healthCheckService;
-    private final RestClient restClient;
+    private final WebClient.Builder webClientBuilder;
     @Value("${default-url}")
     private String DEFAULT_URL;
     @Value("${fallback-url}")
     private String FALLBACK_URL;
 
-    public PaymentService(PaymentRepository paymentRepository, HealthCheckService healthCheckService, RestClient restClient) {
+    public PaymentService(PaymentRepository paymentRepository, HealthCheckService healthCheckService, WebClient.Builder webClientBuilder) {
         this.paymentRepository = paymentRepository;
         this.healthCheckService = healthCheckService;
-        this.restClient = restClient;
+        this.webClientBuilder = webClientBuilder;
     }
 
     public void createPayment(PaymentRequest paymentRequest) {
-        Payment payment = new Payment();
-        payment.setCorrelationId(paymentRequest.correlationId());
-        payment.setAmount(paymentRequest.amount());
+        Payment payment = sendToBestProcessor(paymentRequest);
+        paymentRepository.save(payment);
+    }
 
+
+    private Payment sendToBestProcessor(PaymentRequest paymentRequest) {
         String currentProcessorUrl = healthCheckService.getCurrentProcessorUrl();
+        String alternate = (currentProcessorUrl.equals(DEFAULT_URL)) ? FALLBACK_URL : DEFAULT_URL;
 
-        if (currentProcessorUrl.equals(DEFAULT_URL)) {
+        Optional<Payment> result = tryWithRetry(paymentRequest, currentProcessorUrl);
+
+        if (result.isPresent()) {
+            String processor = getProcessorName(currentProcessorUrl);
+            result.get().setProcessor(processor);
+            return result.get();
+        }
+
+        Optional<Payment> alternateResult = tryWithRetry(paymentRequest, alternate);
+        if (alternateResult.isPresent()) {
+            String processor = getProcessorName(currentProcessorUrl);
+            alternateResult.get().setProcessor(processor);
+            return alternateResult.get();
+        }
+
+        return failResult(paymentRequest);
+    }
+
+
+    private Optional<Payment> tryWithRetry(PaymentRequest paymentRequest, String currentProcessorUrl) {
+        String processor = (currentProcessorUrl.equals("default")) ? "default" : "fallback";
+        WebClient webClient = webClientBuilder.baseUrl(currentProcessorUrl).build();
+        for (int i = 1; i <= 3; i++) {
+            ZonedDateTime processedAt = ZonedDateTime.now();
             try {
-                processPaymentDefaultProcessor(payment);
+
+                PaymentProcessorRequest paymentProcessorRequest = new PaymentProcessorRequest(
+                        paymentRequest.correlationId(),
+                        paymentRequest.amount(),
+                        processedAt
+                );
+
+                webClient.post()
+                        .uri("/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(paymentProcessorRequest)
+                        .retrieve()
+                        .toBodilessEntity()
+                        .timeout(Duration.ofMillis(1000))
+                        .block();
+
+
+                return Optional.of(new Payment(
+                        paymentRequest.correlationId(),
+                        paymentRequest.amount(),
+                        processedAt,
+                        processor
+                ));
             } catch (Exception e) {
-                log.error(e.getMessage());
-                processPaymentFallbackProcessor(payment);
+                log.error("Error sending payment request", e);
+
+                try {
+                    Thread.sleep(50L * i);
+                } catch (InterruptedException e1) {
+                    Thread.currentThread().interrupt();
+                }
             }
-        } else {
-            processPaymentFallbackProcessor(payment);
         }
+
+        return Optional.empty();
     }
 
-    public void processPaymentDefaultProcessor(Payment payment) {
-        payment.setProcessor("default");
-        payment.setRequestedAt(Instant.now());
-        if (sendPaymentRequest(payment, DEFAULT_URL)){
-            paymentRepository.save(payment);
-        } else {
-            throw new RuntimeException("Failed to send payment request");
-        }
-    }
-
-    public void processPaymentFallbackProcessor(Payment payment) {
-        payment.setProcessor("fallback");
-        payment.setRequestedAt(Instant.now());
-        if (sendPaymentRequest(payment, FALLBACK_URL)){
-            paymentRepository.save(payment);
-        } else {
-            throw new RuntimeException("Failed to send payment request");
-        }
-    }
-
-    private boolean sendPaymentRequest(Payment payment, String processorUrl) {
-        try {
-            PaymentProcessorRequest paymentProcessorRequest = new PaymentProcessorRequest(payment.getCorrelationId(), payment.getAmount(), payment.getRequestedAt());
-
-            restClient.post()
-                    .uri(processorUrl + "/payments")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(paymentProcessorRequest)
-                    .retrieve()
-                    .toBodilessEntity();
-
-            return true;
-        } catch (Exception e) {
-            log.error("Error sending payment request", e);
-            return false;
-        }
+    private Payment failResult(PaymentRequest paymentRequest) {
+        return new Payment(
+                paymentRequest.correlationId(),
+                paymentRequest.amount(),
+                null,
+                null
+        );
     }
 
     public PaymentSummaryResponse  getPaymentSummary(ZonedDateTime from, ZonedDateTime to) {
@@ -113,5 +140,12 @@ public class PaymentService {
         log.info("Default payment summary: {}", defaultPaymentSummary);
         log.info("Fallback payment summary: {}", fallbackPaymentSummary);
         return new PaymentSummaryResponse(defaultPaymentSummary, fallbackPaymentSummary);
+    }
+
+
+    private String getProcessorName(String url) {
+        if (DEFAULT_URL.equals(url)) return "default";
+        if (FALLBACK_URL.equals(url)) return "fallback";
+        return "unknown";
     }
 }
