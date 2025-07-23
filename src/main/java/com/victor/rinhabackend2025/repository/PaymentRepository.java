@@ -5,7 +5,7 @@ import com.victor.rinhabackend2025.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
@@ -18,7 +18,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
       AND p.requestedAt <= :to
     GROUP BY p.processor
     """)
-    List<ProcessorSummaryDTO> summarizeByProcessor(Instant from, Instant to);
+    List<ProcessorSummaryDTO> summarizeByProcessor(ZonedDateTime from, ZonedDateTime to);
 
     @Query("""
     SELECT new com.victor.rinhabackend2025.dto.ProcessorSummaryDTO(

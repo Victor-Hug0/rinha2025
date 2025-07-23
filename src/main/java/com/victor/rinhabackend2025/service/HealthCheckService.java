@@ -7,8 +7,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -20,45 +24,55 @@ public class HealthCheckService {
     @Value("${fallback-url}")
     private String FALLBACK_URL;
     private final AtomicReference<String> currentProcessorUrl = new AtomicReference<>(DEFAULT_URL);
-    private final RestClient restClient;
+    private final WebClient.Builder webClientBuilder;
 
-    public HealthCheckService(RestClient restClient) {
-        this.restClient = restClient;
+    public HealthCheckService(WebClient.Builder webClientBuilder) {
+        this.webClientBuilder = webClientBuilder;
     }
 
     @Scheduled(fixedRate = 5000)
-    public void chooseProcessor(){
-        if (isServiceHealth(DEFAULT_URL)) {
-            currentProcessorUrl.set(DEFAULT_URL);
-            log.info("Current processor: DEFAULT_URL ({})", DEFAULT_URL);
-            return;
-        }
+    public void updateHealthCheck() {
+        Boolean defaultHealth = isProcessorHealthy(DEFAULT_URL);
+        Boolean fallbackHealth = isProcessorHealthy(FALLBACK_URL);
 
-        if (isServiceHealth(FALLBACK_URL)) {
-            currentProcessorUrl.set(FALLBACK_URL);
-            log.info("Current processor: FALLBACK_URL ({})", FALLBACK_URL);
-            return;
-        }
-
-        currentProcessorUrl.set(DEFAULT_URL);
-        log.warn("Both processors unavailable, using DEFAULT_URL as fallback ({})", DEFAULT_URL);
+        currentProcessorUrl.set(chooseProcessor(defaultHealth, fallbackHealth));
     }
 
+    private String chooseProcessor(boolean defaultHealth, boolean fallbackHealth) {
+        if (defaultHealth) {
+            return DEFAULT_URL;
+        } else if (fallbackHealth) {
+            return FALLBACK_URL;
+        } else {
+            return DEFAULT_URL;
+        }
+    }
 
-    private Boolean isServiceHealth(String url){
+    private Boolean isProcessorHealthy(String processorUrl) {
+        Optional<ServiceHealthResponse> response = getHealth(processorUrl);
+        return response.isPresent() && response.get().failing();
+    }
+
+    private Optional<ServiceHealthResponse> getHealth(String url){
+        WebClient webClient = webClientBuilder.baseUrl(url).build();
         try {
-            ServiceHealthResponse response = restClient.get()
-                    .uri(url + "/payments/service-health")
+            ServiceHealthResponse serviceHealthResponse = webClient.get()
+                    .uri("/payments/service-health")
                     .retrieve()
-                    .toEntity(ServiceHealthResponse.class).getBody();
+                    .bodyToMono(ServiceHealthResponse.class)
+                    .timeout(Duration.ofMillis(250))
+                    .onErrorResume(e -> {
+                        log.warn("Service health check failed", e);
+                        return Mono.empty();
+                    })
+                    .blockOptional()
+                    .orElse(null);
 
-            return response != null && !response.failing();
-        } catch (HttpClientErrorException.TooManyRequests e) {
-            log.warn("Too many requests for {}: {}", url, e.getResponseBodyAsString());
-            return false;
-        } catch (Exception e) {
-            log.debug("Health check failed for {}: {}", url, e.getMessage());
-            return false;
+            return Optional.ofNullable(serviceHealthResponse);
+
+        } catch (Exception e){
+            log.warn("Service health check failed", e);
+            return Optional.empty();
         }
     }
 

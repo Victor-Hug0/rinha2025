@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service
@@ -93,7 +94,7 @@ public class PaymentService {
         }
     }
 
-    public PaymentSummaryResponse  getPaymentSummary(Instant from, Instant to) {
+    public PaymentSummaryResponse  getPaymentSummary(ZonedDateTime from, ZonedDateTime to) {
         List<ProcessorSummaryDTO> summaryDTOS = (from != null && to != null) ?
                 paymentRepository.summarizeByProcessor(from, to) :
                 paymentRepository.summarizeByProcessorAll();
