@@ -2,6 +2,7 @@ package com.victor.rinhabackend2025.controller;
 
 import com.victor.rinhabackend2025.dto.PaymentRequest;
 import com.victor.rinhabackend2025.dto.PaymentSummaryResponse;
+import com.victor.rinhabackend2025.service.PaymentPublisherService;
 import com.victor.rinhabackend2025.service.PaymentService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -20,16 +21,18 @@ public class PaymentController {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
     private final PaymentService paymentService;
+    private final PaymentPublisherService  paymentPublisherService;
 
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService,  PaymentPublisherService paymentPublisherService) {
         this.paymentService = paymentService;
+        this.paymentPublisherService = paymentPublisherService;
     }
 
     @PostMapping("/payments")
     public ResponseEntity<Void> createPayment(@RequestBody @Valid PaymentRequest paymentRequest) {
 
         try {
-            paymentService.createPayment(paymentRequest);
+            paymentPublisherService.publishPayment(paymentRequest);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error(e.getMessage(), e);
