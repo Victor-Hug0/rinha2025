@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.lettuce.core.ReadFrom;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -21,6 +22,12 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
+    @Value("${redis.host}")
+    private String redisHost;
+
+    @Value("${redis.port}")
+    private int redisPort;
+
     @Bean
     public LettuceConnectionFactory lettuceConnectionFactory() {
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
@@ -28,7 +35,7 @@ public class RedisConfig {
                 .build();
 
         return new LettuceConnectionFactory(
-                new RedisStandaloneConfiguration("server", 6379),
+                new RedisStandaloneConfiguration(redisHost, redisPort),
                 clientConfig
         );
     }
@@ -59,5 +66,4 @@ public class RedisConfig {
 
         return redisTemplate;
     }
-
 }
