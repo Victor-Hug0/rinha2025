@@ -40,13 +40,7 @@ public class PaymentService {
         this.webClientBuilder = webClientBuilder;
     }
 
-    public void createPayment(PaymentRequest paymentRequest) {
-        Payment payment = sendToBestProcessor(paymentRequest);
-        paymentRepository.save(payment);
-    }
-
-
-    private Payment sendToBestProcessor(PaymentRequest paymentRequest) {
+    public Payment sendToBestProcessor(PaymentRequest paymentRequest) {
         String currentProcessorUrl = healthCheckService.getCurrentProcessorUrl();
         String alternate = (currentProcessorUrl.equals(DEFAULT_URL)) ? FALLBACK_URL : DEFAULT_URL;
 
